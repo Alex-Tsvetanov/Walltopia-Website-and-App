@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Walltopia Preliminary Loads — Applicability Check</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="masthead">
+    <div class="wrap">
+      <div class="brand-mark">W</div>
+      <div class="brand">
+        <h1>Preliminary Loads — Applicability Check</h1>
+        <p>Artificial Climbing Structures · loads on existing structures</p>
+      </div>
+      <div class="spacer"></div>
+      <span class="pill-warn">Preliminary · not for construction</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- INPUTS -->
+    <section class="card panel" aria-label="Inputs">
+      <h2>Your inputs</h2>
+
+      <div class="field">
+        <label>Units</label>
+        <div class="seg" id="seg-units"></div>
+      </div>
+
+      <div class="field">
+        <label>Structure type</label>
+        <div class="seg" id="seg-type"></div>
+        <div class="hint" id="type-hint"></div>
+      </div>
+
+      <div class="field">
+        <label id="lbl-height">Climbing-surface height</label>
+        <div class="chips" id="chips-height"></div>
+      </div>
+
+      <div class="field" id="field-scheme">
+        <label>Attachment scheme <span class="hint">(levels of attachment by height)</span></label>
+        <div class="chips small" id="chips-scheme"></div>
+      </div>
+
+      <div class="field">
+        <label id="lbl-span">Column span&nbsp;·&nbsp;A <span class="hint">(between building columns)</span></label>
+        <div class="chips" id="chips-span"></div>
+      </div>
+
+      <div class="field">
+        <label id="lbl-overhang">Overhang&nbsp;·&nbsp;X <span class="hint">(top − bottom contour)</span></label>
+        <div class="chips" id="chips-overhang"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="field" style="margin-bottom:10px">
+        <label>Check against your structure <span class="hint">(optional)</span></label>
+        <div class="caprow">
+          <input id="cap-input" type="number" inputmode="decimal" placeholder="allowable column load" min="0" step="any" />
+          <div class="unit" id="cap-unit">kN</div>
+        </div>
+        <div class="hint" style="margin-top:7px">Horizontal load one existing column / frame can carry.</div>
+      </div>
+
+      <label class="toggle-line">
+        <input type="checkbox" id="chk-factored" />
+        Show factored design values&nbsp;<span class="hint" id="factored-hint"></span>
+      </label>
+    </section>
+
+    <!-- RESULTS -->
+    <section class="card results" aria-live="polite">
+      <div id="result-root">
+        <div class="empty">Loading load tables…</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
