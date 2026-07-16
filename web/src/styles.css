@@ -89,6 +89,31 @@ body {
 .panel { padding: 22px; position: sticky; top: 20px; border-top: 3px solid var(--navy); }
 @media (max-width: 960px) { .panel { position: static; } }
 
+/* Options flyout — desktop keeps the sidebar; phone widths get a left drawer. */
+.options-opener, .drawer-backdrop, .drawer-close, .drawer-done { display: none; }
+@media (max-width: 760px) {
+  .options-opener {
+    display: flex; align-items: center; gap: 10px; width: 100%; font: inherit;
+    background: var(--navy); color: #fff; border: 0; cursor: pointer; padding: 13px 16px;
+  }
+  .options-opener .oo-icon { font-size: 16px; }
+  .options-opener .oo-label { font-family: var(--display); font-weight: 800; font-size: 12.5px; text-transform: uppercase; letter-spacing: .5px; }
+  .options-opener .oo-summary { margin-left: auto; color: #aab2c4; font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .drawer-backdrop { position: fixed; inset: 0; background: rgba(12, 13, 18, .5); z-index: 60; opacity: 0; pointer-events: none; transition: opacity .22s; }
+  .layout.drawer-open .drawer-backdrop { opacity: 1; pointer-events: auto; }
+
+  .panel {
+    position: fixed !important; top: 0; left: 0; bottom: 0; width: min(330px, 86vw);
+    z-index: 70; margin: 0; overflow-y: auto; border-top: 4px solid var(--accent);
+    transform: translateX(-102%); transition: transform .24s ease; box-shadow: var(--shadow-lg);
+  }
+  .layout.drawer-open .panel { transform: translateX(0); }
+  .panel h2 { margin-top: 2px; }
+  .drawer-close { display: block; position: absolute; top: 12px; right: 12px; background: transparent; border: 0; font-size: 26px; line-height: 1; color: var(--ink-faint); cursor: pointer; }
+  .drawer-done { display: block; width: 100%; margin-top: 18px; }
+}
+
 .panel h2, .results h2 {
   font-family: var(--display); font-size: 12.5px; text-transform: uppercase; letter-spacing: .8px;
   color: var(--ink); margin: 0 0 16px; font-weight: 800; display: flex; align-items: center; gap: 9px;
@@ -178,6 +203,32 @@ table.loads .grp-ll { color: var(--ll); }
 
 .schematic { background: var(--surface-2); border: 1px solid var(--line); padding: 8px; }
 .schematic svg { width: 100%; height: auto; display: block; }
+
+/* ---- interactive ACS diagram ---- */
+.acs-wrap { background: var(--surface-2); border: 1px solid var(--line); border-top: 3px solid var(--accent); padding: 12px 8px; margin-top: 20px; }
+.acs-diagram { display: block; width: 100%; height: auto; overflow: visible; }
+.acs-frame path, .acs-frame line { fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.acs-column { fill: rgba(44, 46, 61, 0.06); stroke: var(--ink); stroke-width: 2; }
+.acs-beam { stroke: var(--navy); stroke-width: 4; stroke-linecap: round; transition: stroke .2s; }
+.acs-point { fill: #fff; stroke: var(--accent); stroke-width: 3; }
+.acs-force { fill: none; stroke: var(--accent); stroke-width: 3; stroke-dasharray: 8 7; animation: acs-flow 1.2s linear infinite; }
+.acs-force-label { fill: var(--ink); font-family: var(--mono); font-weight: 700; font-size: 14px; }
+.acs-contour { fill: rgba(236, 28, 36, 0.08); stroke: var(--ink-faint); stroke-width: 2; stroke-linejoin: round; }
+.acs-top-contour { fill: none; stroke: var(--ink-faint); stroke-width: 1.5; stroke-dasharray: 6 6; }
+.acs-dim { fill: none; stroke: var(--ink-faint); stroke-width: 1.4; }
+.acs-guide { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 5 6; }
+.acs-muted { fill: var(--ink-faint); font-family: var(--sans); font-size: 14px; }
+/* one-time draw-on intro */
+.acs-wrap.is-intro .acs-frame path, .acs-wrap.is-intro .acs-column { stroke-dasharray: 1200; stroke-dashoffset: 1200; animation: acs-draw .9s ease forwards; }
+.acs-wrap.is-intro .acs-beam { stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: acs-draw .8s ease .45s forwards; }
+.acs-wrap.is-intro .acs-contour, .acs-wrap.is-intro .acs-top-contour { stroke-dasharray: 900; stroke-dashoffset: 900; animation: acs-draw .75s ease .9s forwards; }
+.acs-wrap.is-intro .acs-point { opacity: 0; animation: acs-pop .45s ease 1.35s forwards; }
+.acs-wrap.is-intro .acs-force, .acs-wrap.is-intro .acs-force-label { opacity: 0; animation: acs-pop .45s ease 1.6s forwards; }
+.acs-wrap.is-intro .acs-dims { opacity: 0; animation: acs-pop .55s ease 1.9s forwards; }
+@keyframes acs-flow { to { stroke-dashoffset: -30; } }
+@keyframes acs-draw { to { stroke-dashoffset: 0; } }
+@keyframes acs-pop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .acs-wrap * { animation: none !important; } .acs-wrap.is-intro * { opacity: 1 !important; stroke-dashoffset: 0 !important; } }
 
 .notes { margin-top: 26px; }
 .notes ol { margin: 8px 0 0; padding-left: 20px; font-size: 12.5px; color: var(--ink-soft); }

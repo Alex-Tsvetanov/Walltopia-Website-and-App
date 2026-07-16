@@ -1,12 +1,21 @@
-import { useEffect, useState } from "react";
-import { ScrollView, View, Text, TextInput, Switch, StyleSheet } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ScrollView, View, Text, TextInput, Switch, StyleSheet, Animated, Pressable, Dimensions } from "react-native";
 import { C, FD, FB } from "../theme";
 import { Segmented, Chips, Field, SectionTitle, Hint, Card, Btn } from "../components/ui";
 import { useAuth } from "../auth";
 import { api } from "../api";
 import * as L from "../lib/loads";
+import AcsDiagram from "../components/AcsDiagram";
 
 const lenChip = (units) => (v) => (units === "EU" ? String(v) : String(Math.round(v * 3.28084)));
+
+function zLevels(data, s) {
+  if (s.type === "wall") {
+    const w = data.walls[L.wallKey(s.height, s.levels)];
+    if (w && w.lhEU) return Object.keys(w.lhEU).sort((a, b) => Number(a) - Number(b)).map((k) => w.lhEU[k]);
+  }
+  return [s.height];
+}
 
 export default function CalculatorScreen({ data, initialProject, onProjectChange, onExit, requireLogin }) {
   const { user } = useAuth();
@@ -15,6 +24,24 @@ export default function CalculatorScreen({ data, initialProject, onProjectChange
       ? { ...L.initialState(), ...initialProject.input, cap: initialProject.input?.capacity ?? null }
       : L.initialState()));
   const [project, setProject] = useState(initialProject || null);
+
+  const DRAWER_W = Math.min(330, Dimensions.get("window").width * 0.86);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const slide = useRef(new Animated.Value(-DRAWER_W)).current;
+  const fade = useRef(new Animated.Value(0)).current;
+  const openDrawer = () => {
+    setDrawerOpen(true);
+    Animated.parallel([
+      Animated.timing(slide, { toValue: 0, duration: 240, useNativeDriver: true }),
+      Animated.timing(fade, { toValue: 1, duration: 240, useNativeDriver: true }),
+    ]).start();
+  };
+  const closeDrawer = () => {
+    Animated.parallel([
+      Animated.timing(slide, { toValue: -DRAWER_W, duration: 220, useNativeDriver: true }),
+      Animated.timing(fade, { toValue: 0, duration: 220, useNativeDriver: true }),
+    ]).start(({ finished }) => { if (finished) setDrawerOpen(false); });
+  };
 
   const um = L.unitMeta(data, s.units);
   const opt = L.optionsFor(data, s);
@@ -27,88 +54,111 @@ export default function CalculatorScreen({ data, initialProject, onProjectChange
   const vd = L.verdict(data, s);
   const rows = L.pointRows(data, s);
   const forceLevels = L.forceLevels(data, s);
+  const summary = `${L.fmtLen(s.height, s.units)} · ${s.type === "wall" ? s.levels + "-lvl" : "boulder"} · A ${L.fmtLen(s.span, s.units)} · X ${L.fmtLen(s.overhang, s.units)}`;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
-      <Card>
-        <SectionTitle>Your inputs</SectionTitle>
-        <Field label="Units">
-          <Segmented value={s.units} onChange={setUnits}
-            options={[{ label: "Metric (kN·m)", value: "EU" }, { label: "Imperial (lb·ft)", value: "USA" }]} />
-        </Field>
-        <Field label="Structure type" hint={s.type === "wall" ? "with protection points" : "without protection points"}>
-          <Segmented value={s.type} onChange={(v) => update({ type: v })}
-            options={[{ label: "Climbing wall", value: "wall" }, { label: "Boulder wall", value: "boulder" }]} />
-        </Field>
-        <Field label={`Climbing-surface height (${unitLbl})`}>
-          <Chips values={opt.heights} value={s.height} onChange={(v) => update({ height: v })} label={lenChip(s.units)} />
-        </Field>
-        {s.type === "wall" && (
-          <Field label="Attachment scheme">
-            <Chips small values={opt.schemes} value={s.levels} onChange={(v) => update({ levels: v })}
-              label={(v) => v + (v === 1 ? " level" : " levels")} />
-          </Field>
-        )}
-        <Field label={`Column span · A (${unitLbl})`}>
-          <Chips values={opt.spans} value={s.span} onChange={(v) => update({ span: v })} label={lenChip(s.units)} />
-        </Field>
-        <Field label={`Overhang · X (${unitLbl})`}>
-          <Chips values={opt.overhangs} value={s.overhang} onChange={(v) => update({ overhang: v })} label={lenChip(s.units)} />
-        </Field>
+    <View style={{ flex: 1 }}>
+      <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
+        {/* opener for the options flyout */}
+        <Pressable onPress={openDrawer} style={st.optionsBar}>
+          <Text style={st.optionsIcon}>☰</Text>
+          <Text style={st.optionsLabel}>Options</Text>
+          <Text style={st.optionsSummary} numberOfLines={1}>{summary}</Text>
+        </Pressable>
 
-        <View style={{ height: 1, backgroundColor: C.line, marginVertical: 6 }} />
-        <Field label="Check against your structure (optional)">
-          <View style={{ flexDirection: "row" }}>
-            <TextInput style={st.capInput} keyboardType="numeric" placeholder="allowable column load"
-              value={s.cap == null ? "" : String(s.cap)}
-              onChangeText={(t) => update({ cap: t === "" ? null : Number(t) })} />
-            <View style={st.capUnit}><Text style={{ color: "#fff", fontFamily: FD[700] }}>{um.force}</Text></View>
-          </View>
-        </Field>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <Switch value={s.factored} onValueChange={(v) => update({ factored: v })} trackColor={{ true: C.red }} />
-          <Text style={{ color: C.inkSoft, fontSize: 13, fontFamily: FB[400], flex: 1 }}>Show factored design values (×{um.dl} DL, ×{um.ll} LL)</Text>
-        </View>
-      </Card>
+        <Card style={{ borderTopColor: C.red, borderTopWidth: 3 }}>
+          <ProjectBar data={data} state={s} user={user} project={project} requireLogin={requireLogin}
+            onSaved={(p) => { setProject(p); onProjectChange && onProjectChange(p); }}
+            onExit={() => { setProject(null); onExit && onExit(); }} />
 
-      <Card style={{ borderTopColor: C.red, borderTopWidth: 3 }}>
-        <ProjectBar data={data} state={s} user={user} project={project} requireLogin={requireLogin}
-          onSaved={(p) => { setProject(p); onProjectChange && onProjectChange(p); }}
-          onExit={() => { setProject(null); onExit && onExit(); }} />
-
-        {!have ? (
-          <Text style={{ color: C.inkFaint, textAlign: "center", paddingVertical: 40, fontFamily: FB[400] }}>No table entry for this combination.</Text>
-        ) : (
-          <>
-            <Text style={st.title}>{L.titleFor(s)}</Text>
-            <Text style={st.sub}>
-              {(s.type === "wall" ? s.levels + (s.levels === 1 ? " attachment level" : " attachment levels") : "single attachment")}
-              {` · A = ${L.fmtLen(s.span, s.units)} · X = ${L.fmtLen(s.overhang, s.units)} · ${um.force}${s.factored ? " · factored" : ""}`}
-            </Text>
-
-            <View style={[st.verdict, vd === "ok" ? st.vOk : vd === "bad" ? st.vBad : st.vNeutral]}>
-              <Text style={{ fontFamily: FB[700], fontSize: 16, color: vd === "ok" ? C.ok : vd === "bad" ? C.bad : C.inkSoft }}>
-                {vd === "neutral" ? "Governing column load" : vd === "ok" ? "✓ Applicable" : "✕ Exceeds capacity"}
+          {!have ? (
+            <Text style={{ color: C.inkFaint, textAlign: "center", paddingVertical: 40, fontFamily: FB[400] }}>No table entry for this combination.</Text>
+          ) : (
+            <>
+              <Text style={st.title}>{L.titleFor(s)}</Text>
+              <Text style={st.sub}>
+                {(s.type === "wall" ? s.levels + (s.levels === 1 ? " attachment level" : " attachment levels") : "single attachment")}
+                {` · A = ${L.fmtLen(s.span, s.units)} · X = ${L.fmtLen(s.overhang, s.units)} · ${um.force}${s.factored ? " · factored" : ""}`}
               </Text>
-              <Text style={{ fontFamily: FB[700], fontSize: 18, color: C.ink, marginTop: 2, fontVariant: ["tabular-nums"] }}>{L.fmtForce(gov, s.units)} {um.force}
-                <Text style={{ color: C.inkFaint, fontFamily: FB[400], fontSize: 13 }}>{vd === "neutral" ? "  (factored)" : `  vs ${L.fmtForce(s.cap, s.units)} capacity`}</Text>
-              </Text>
-            </View>
 
-            {s.type === "wall" && forceLevels.length > 0 && (
-              <View style={{ marginBottom: 10 }}>
-                <Text style={st.forceLab}>Force level — level taken at max live load</Text>
-                <Chips small values={forceLevels.map((f) => f.lvl)} value={s.force} onChange={(v) => update({ force: v })}
-                  label={(lvl) => { const f = forceLevels.find((x) => x.lvl === lvl); return "L" + lvl + (f && f.height ? " · " + L.fmtLen(f.height, s.units) : ""); }} />
+              <View style={[st.verdict, vd === "ok" ? st.vOk : vd === "bad" ? st.vBad : st.vNeutral]}>
+                <Text style={{ fontFamily: FB[700], fontSize: 16, color: vd === "ok" ? C.ok : vd === "bad" ? C.bad : C.inkSoft }}>
+                  {vd === "neutral" ? "Governing column load" : vd === "ok" ? "✓ Applicable" : "✕ Exceeds capacity"}
+                </Text>
+                <Text style={{ fontFamily: FB[700], fontSize: 18, color: C.ink, marginTop: 2, fontVariant: ["tabular-nums"] }}>{L.fmtForce(gov, s.units)} {um.force}
+                  <Text style={{ color: C.inkFaint, fontFamily: FB[400], fontSize: 13 }}>{vd === "neutral" ? "  (factored)" : `  vs ${L.fmtForce(s.cap, s.units)} capacity`}</Text>
+                </Text>
               </View>
-            )}
 
-            <PointTable rows={rows} s={s} um={um} />
-            <Text style={st.legend}>R = load on one ACS axis · L = load on a building column (span-adjusted). DL/LL = dead/live load. Preliminary — factor per the acting standard.</Text>
-          </>
-        )}
-      </Card>
-    </ScrollView>
+              {s.type === "wall" && forceLevels.length > 0 && (
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={st.forceLab}>Force level — level taken at max live load</Text>
+                  <Chips small values={forceLevels.map((f) => f.lvl)} value={s.force} onChange={(v) => update({ force: v })}
+                    label={(lvl) => { const f = forceLevels.find((x) => x.lvl === lvl); return "L" + lvl + (f && f.height ? " · " + L.fmtLen(f.height, s.units) : ""); }} />
+                </View>
+              )}
+
+              <PointTable rows={rows} s={s} um={um} />
+              <AcsDiagram a={s.span} x={s.overhang} height={s.height} zValues={zLevels(data, s)} />
+              <Text style={st.legend}>R = load on one ACS axis · L = load on a building column (span-adjusted). DL/LL = dead/live load. Diagram is schematic (metres). Preliminary — factor per the acting standard.</Text>
+            </>
+          )}
+        </Card>
+      </ScrollView>
+
+      {/* backdrop */}
+      {drawerOpen && (
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(12,13,18,0.45)", opacity: fade }]}>
+          <Pressable style={{ flex: 1 }} onPress={closeDrawer} />
+        </Animated.View>
+      )}
+      {/* left flyout with the inputs */}
+      <Animated.View pointerEvents={drawerOpen ? "auto" : "none"} style={[st.drawer, { width: DRAWER_W, transform: [{ translateX: slide }] }]}>
+        <View style={st.drawerHead}>
+          <Text style={st.drawerTitle}>Your inputs</Text>
+          <Pressable onPress={closeDrawer} hitSlop={12}><Text style={st.drawerClose}>✕</Text></Pressable>
+        </View>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+          <Field label="Units">
+            <Segmented value={s.units} onChange={setUnits}
+              options={[{ label: "Metric (kN·m)", value: "EU" }, { label: "Imperial (lb·ft)", value: "USA" }]} />
+          </Field>
+          <Field label="Structure type" hint={s.type === "wall" ? "with protection points" : "without protection points"}>
+            <Segmented value={s.type} onChange={(v) => update({ type: v })}
+              options={[{ label: "Climbing wall", value: "wall" }, { label: "Boulder wall", value: "boulder" }]} />
+          </Field>
+          <Field label={`Climbing-surface height (${unitLbl})`}>
+            <Chips values={opt.heights} value={s.height} onChange={(v) => update({ height: v })} label={lenChip(s.units)} />
+          </Field>
+          {s.type === "wall" && (
+            <Field label="Attachment scheme">
+              <Chips small values={opt.schemes} value={s.levels} onChange={(v) => update({ levels: v })}
+                label={(v) => v + (v === 1 ? " level" : " levels")} />
+            </Field>
+          )}
+          <Field label={`Column span · A (${unitLbl})`}>
+            <Chips values={opt.spans} value={s.span} onChange={(v) => update({ span: v })} label={lenChip(s.units)} />
+          </Field>
+          <Field label={`Overhang · X (${unitLbl})`}>
+            <Chips values={opt.overhangs} value={s.overhang} onChange={(v) => update({ overhang: v })} label={lenChip(s.units)} />
+          </Field>
+          <View style={{ height: 1, backgroundColor: C.line, marginVertical: 6 }} />
+          <Field label="Check against your structure (optional)">
+            <View style={{ flexDirection: "row" }}>
+              <TextInput style={st.capInput} keyboardType="numeric" placeholder="allowable column load"
+                value={s.cap == null ? "" : String(s.cap)}
+                onChangeText={(t) => update({ cap: t === "" ? null : Number(t) })} />
+              <View style={st.capUnit}><Text style={{ color: "#fff", fontFamily: FD[700] }}>{um.force}</Text></View>
+            </View>
+          </Field>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Switch value={s.factored} onValueChange={(v) => update({ factored: v })} trackColor={{ true: C.red }} />
+            <Text style={{ color: C.inkSoft, fontSize: 13, fontFamily: FB[400], flex: 1 }}>Show factored design values (×{um.dl} DL, ×{um.ll} LL)</Text>
+          </View>
+          <Btn title="Done" variant="primary" onPress={closeDrawer} style={{ marginTop: 18 }} />
+        </ScrollView>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -281,6 +331,14 @@ const st = StyleSheet.create({
   legend: { fontSize: 11.5, fontFamily: FB[400], color: C.inkFaint, marginTop: 12, lineHeight: 16 },
   capInput: { flex: 1, borderWidth: 1, borderColor: C.lineStrong, paddingHorizontal: 11, paddingVertical: 10, fontSize: 14, fontFamily: FB[400] },
   capUnit: { backgroundColor: C.navy, paddingHorizontal: 13, justifyContent: "center" },
+  optionsBar: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: C.navy, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 16 },
+  optionsIcon: { color: "#fff", fontSize: 16 },
+  optionsLabel: { color: "#fff", fontFamily: FD[800], fontSize: 12.5, textTransform: "uppercase", letterSpacing: 0.5 },
+  optionsSummary: { color: "#aab2c4", fontFamily: FB[600], fontSize: 12.5, flex: 1, textAlign: "right" },
+  drawer: { position: "absolute", top: 0, bottom: 0, left: 0, backgroundColor: C.surface, borderRightColor: C.lineStrong, borderRightWidth: 1, elevation: 16, shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 12, shadowOffset: { width: 2, height: 0 } },
+  drawerHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: C.navy, borderTopColor: C.red, borderTopWidth: 4, paddingHorizontal: 16, paddingVertical: 14 },
+  drawerTitle: { color: "#fff", fontFamily: FD[900], fontSize: 16, letterSpacing: 0.2 },
+  drawerClose: { color: "#c3c8d6", fontSize: 18, fontFamily: FD[700] },
   saveLbl: { fontSize: 11.5, fontFamily: FB[700], textTransform: "uppercase", letterSpacing: 0.4, color: C.inkSoft, marginBottom: 6, marginTop: 4 },
   saveInput: { borderWidth: 1, borderColor: C.lineStrong, backgroundColor: "#fff", paddingHorizontal: 11, paddingVertical: 9, fontSize: 14, marginBottom: 10, fontFamily: FB[400] },
 });

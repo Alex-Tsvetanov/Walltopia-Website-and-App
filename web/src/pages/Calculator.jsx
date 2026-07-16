@@ -6,6 +6,15 @@ import { api } from "../api";
 import * as L from "../lib/loads";
 import { Seg, Chips } from "../components/Controls";
 import ProjectBar from "../components/ProjectBar";
+import AcsDiagram from "../components/AcsDiagram";
+
+function zLevels(data, s) {
+  if (s.type === "wall") {
+    const w = data.walls[L.wallKey(s.height, s.levels)];
+    if (w && w.lhEU) return Object.keys(w.lhEU).sort((a, b) => Number(a) - Number(b)).map((k) => w.lhEU[k]);
+  }
+  return [s.height]; // boulder: single attachment near the top
+}
 
 const lenChip = (units) => (v) => (units === "EU" ? v : Math.round(v * 3.28084));
 
@@ -19,10 +28,17 @@ export default function Calculator() {
   const { requireAuth, ready } = useAuth();
   const [s, setS] = useState(L.initialState());
   const [project, setProject] = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [params, setParams] = useSearchParams();
   const projectId = params.get("project");
 
   useEffect(() => { if (data) setS((prev) => L.clampState(data, prev)); }, [data]);
+
+  // lock background scroll while the options drawer is open (phone widths)
+  useEffect(() => {
+    document.body.style.overflow = drawerOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [drawerOpen]);
 
   useEffect(() => {
     if (!projectId || !data || !ready) return; // wait for the session check before deciding to prompt login
@@ -55,11 +71,22 @@ export default function Calculator() {
 
   const exitEditing = () => { setProject(null); setParams({}, { replace: true }); };
   const onSaved = (p) => { setProject(p); setParams({ project: p.id }, { replace: true }); };
+  const closeDrawer = () => setDrawerOpen(false);
+  const summary = `${L.fmtLen(s.height, s.units)} · ${s.type === "wall" ? s.levels + "-lvl" : "boulder"} · A ${L.fmtLen(s.span, s.units)} · X ${L.fmtLen(s.overhang, s.units)}`;
 
   return (
-    <main className="layout">
-      {/* INPUTS */}
+    <main className={"layout" + (drawerOpen ? " drawer-open" : "")}>
+      {/* Options opener — only visible on phone-width screens */}
+      <button type="button" className="options-opener" onClick={() => setDrawerOpen(true)}>
+        <span className="oo-icon">☰</span>
+        <span className="oo-label">Options</span>
+        <span className="oo-summary">{summary}</span>
+      </button>
+      <div className="drawer-backdrop" onClick={closeDrawer} />
+
+      {/* INPUTS (sidebar on desktop, left flyout on phones) */}
       <section className="card panel" aria-label="Inputs">
+        <button type="button" className="drawer-close" aria-label="Close options" onClick={closeDrawer}>&times;</button>
         <h2>Your inputs</h2>
 
         <div className="field">
@@ -114,6 +141,8 @@ export default function Calculator() {
           <input type="checkbox" checked={s.factored} onChange={(e) => update({ factored: e.target.checked })} />
           Show factored design values&nbsp;<span className="hint">(×{um.dl} DL, ×{um.ll} LL)</span>
         </label>
+
+        <button type="button" className="btn primary drawer-done" onClick={closeDrawer}>Done</button>
       </section>
 
       {/* RESULTS */}
@@ -179,6 +208,7 @@ export default function Calculator() {
               </table>
             </div>
 
+            <AcsDiagram a={s.span} x={s.overhang} height={s.height} zValues={zLevels(data, s)} />
             <Legend units={s.units} />
             <Notes data={data} s={s} um={um} />
           </>
@@ -190,7 +220,7 @@ export default function Calculator() {
 
 function Legend() {
   return (
-    <div className="legend">
+    <div className="legend" style={{ gridTemplateColumns: "1fr" }}>
       <div>
         <h3>Coordinate system &amp; symbols</h3>
         <dl>
@@ -200,22 +230,6 @@ function Legend() {
           <dt>X0 / X1 / X2 / X3</dt><dd>Horizontal component at the base (X0) and at attachment level 1, 2, 3.</dd>
           <dt>DL / LL</dt><dd>Dead load / Live load (climber load per EN 12572).</dd>
         </dl>
-      </div>
-      <div className="schematic">
-        <svg viewBox="0 0 360 240" role="img" aria-label="Overhang X and span A schematic">
-          <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#ec1c24" /></marker></defs>
-          <line x1="20" y1="210" x2="340" y2="210" stroke="#c7cad0" strokeWidth="2" />
-          <line x1="70" y1="60" x2="70" y2="210" stroke="#2c2e3d" strokeWidth="4" />
-          <line x1="200" y1="60" x2="200" y2="210" stroke="#2c2e3d" strokeWidth="4" />
-          <path d="M70,210 L110,210 L90,60 L70,60 Z" fill="#fdebec" stroke="#ec1c24" strokeWidth="1.5" />
-          <line x1="90" y1="45" x2="110" y2="45" stroke="#ec1c24" strokeWidth="1.5" markerStart="url(#ah)" markerEnd="url(#ah)" />
-          <text x="100" y="38" fill="#ec1c24" fontSize="13" fontWeight="800" textAnchor="middle">X</text>
-          <line x1="70" y1="228" x2="200" y2="228" stroke="#ec1c24" strokeWidth="1.5" markerStart="url(#ah)" markerEnd="url(#ah)" />
-          <text x="135" y="224" fill="#ec1c24" fontSize="13" fontWeight="800" textAnchor="middle">A</text>
-          <circle cx="90" cy="60" r="4" fill="#ec1c24" /><circle cx="86" cy="135" r="4" fill="#ec1c24" />
-          <text x="120" y="64" fill="#454955" fontSize="11">L / attachment level</text>
-          <text x="215" y="150" fill="#878d99" fontSize="11">existing columns</text>
-        </svg>
       </div>
     </div>
   );
