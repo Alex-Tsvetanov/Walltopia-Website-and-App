@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Projects — Walltopia Preliminary Loads</title>
+  <meta name="description" content="Your saved Walltopia preliminary-load designs — filter by tag, search, open and tweak." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="icon" href="assets/walltopia-logo.svg" />
+  <link rel="stylesheet" href="styles.css?v=wt4" />
+</head>
+<body>
+  <header class="masthead">
+    <div class="wrap">
+      <a class="brand" href="index.html">
+        <img class="logo" src="assets/walltopia-logo-white.svg" alt="Walltopia" />
+        <span class="tag">Preliminary&nbsp;<b>Loads</b></span>
+      </a>
+      <div class="spacer"></div>
+      <nav class="topnav" aria-label="Primary">
+        <a href="index.html">Load Calculator</a>
+        <a href="dashboard.html" aria-current="page">My Projects</a>
+        <a href="manual.html">Application Manual</a>
+        <a href="attachment-details.html">Attachment Details</a>
+      </nav>
+      <div id="auth-slot"></div>
+    </div>
+  </header>
+
+  <main class="dash">
+    <div class="dash-head">
+      <div>
+        <h1>My Projects</h1>
+        <p id="dash-sub">Saved load designs</p>
+      </div>
+      <a class="btn primary" href="index.html">+ New calculation</a>
+    </div>
+
+    <div id="dash-body">
+      <div class="dash-empty">Loading…</div>
+    </div>
+  </main>
+
+  <script src="api.js?v=wt4"></script>
+  <script src="auth-ui.js?v=wt4"></script>
+  <script src="dashboard.js?v=wt4"></script>
+</body>
+</html>

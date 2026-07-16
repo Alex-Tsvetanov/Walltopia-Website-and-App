@@ -354,26 +354,26 @@
   function schematicSvg() {
     return '<svg viewBox="0 0 360 240" role="img" aria-label="Overhang X and span A schematic">'
       + '<defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">'
-      + '<path d="M0,0 L6,3 L0,6 z" fill="#0b5cab"/></marker></defs>'
+      + '<path d="M0,0 L6,3 L0,6 z" fill="#ec1c24"/></marker></defs>'
       + '<rect x="0" y="0" width="360" height="240" fill="none"/>'
       // ground
-      + '<line x1="20" y1="210" x2="340" y2="210" stroke="#b9c5d1" stroke-width="2"/>'
+      + '<line x1="20" y1="210" x2="340" y2="210" stroke="#c7cad0" stroke-width="2"/>'
       // existing columns
-      + '<line x1="70" y1="60" x2="70" y2="210" stroke="#8394a4" stroke-width="4"/>'
-      + '<line x1="200" y1="60" x2="200" y2="210" stroke="#8394a4" stroke-width="4"/>'
+      + '<line x1="70" y1="60" x2="70" y2="210" stroke="#2c2e3d" stroke-width="4"/>'
+      + '<line x1="200" y1="60" x2="200" y2="210" stroke="#2c2e3d" stroke-width="4"/>'
       // climbing surface profile (overhang)
-      + '<path d="M70,210 L110,210 L90,60 L70,60 Z" fill="#e5eefb" stroke="#0b5cab" stroke-width="1.5"/>'
+      + '<path d="M70,210 L110,210 L90,60 L70,60 Z" fill="#fdebec" stroke="#ec1c24" stroke-width="1.5"/>'
       // overhang X dimension
-      + '<line x1="90" y1="45" x2="110" y2="45" stroke="#0b5cab" stroke-width="1.5" marker-start="url(#ah)" marker-end="url(#ah)"/>'
-      + '<text x="100" y="38" fill="#0b5cab" font-size="13" font-weight="700" text-anchor="middle">X</text>'
+      + '<line x1="90" y1="45" x2="110" y2="45" stroke="#ec1c24" stroke-width="1.5" marker-start="url(#ah)" marker-end="url(#ah)"/>'
+      + '<text x="100" y="38" fill="#ec1c24" font-size="13" font-weight="800" text-anchor="middle">X</text>'
       // span A dimension
-      + '<line x1="70" y1="228" x2="200" y2="228" stroke="#0b5cab" stroke-width="1.5" marker-start="url(#ah)" marker-end="url(#ah)"/>'
-      + '<text x="135" y="224" fill="#0b5cab" font-size="13" font-weight="700" text-anchor="middle">A</text>'
+      + '<line x1="70" y1="228" x2="200" y2="228" stroke="#ec1c24" stroke-width="1.5" marker-start="url(#ah)" marker-end="url(#ah)"/>'
+      + '<text x="135" y="224" fill="#ec1c24" font-size="13" font-weight="800" text-anchor="middle">A</text>'
       // attachment points
-      + '<circle cx="90" cy="60" r="4" fill="#b4530a"/>'
-      + '<circle cx="86" cy="135" r="4" fill="#b4530a"/>'
-      + '<text x="120" y="64" fill="#4a5b6b" font-size="11">L / attachment level</text>'
-      + '<text x="215" y="150" fill="#8394a4" font-size="11">existing columns</text>'
+      + '<circle cx="90" cy="60" r="4" fill="#ec1c24"/>'
+      + '<circle cx="86" cy="135" r="4" fill="#ec1c24"/>'
+      + '<text x="120" y="64" fill="#454955" font-size="11">L / attachment level</text>'
+      + '<text x="215" y="150" fill="#878d99" font-size="11">existing columns</text>'
       + "</svg>";
   }
 
@@ -388,6 +388,200 @@
       + '<p class="footnote">Reproduces the Walltopia 2026 preliminary-loads tables. Preliminary sizing only — the manual for use is an inseparable part of these tables.</p></div>';
   }
 
+  // ============ projects: save / load / questions ============
+  var P = null; // currently loaded/edited project { id, name, tags, properties }
+
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+  function currentInput() {
+    return { units: S.units, type: S.type, height: S.height, levels: S.levels,
+      overhang: S.overhang, span: S.span, force: S.force, factored: S.factored, capacity: S.cap };
+  }
+  function applyInput(inp) {
+    if (!inp) return;
+    ["units", "type", "height", "levels", "overhang", "span", "force", "factored"].forEach(function (k) {
+      if (inp[k] !== undefined && inp[k] !== null) S[k] = inp[k];
+    });
+    S.cap = (inp.capacity !== undefined && inp.capacity !== null) ? inp.capacity : null;
+  }
+  function currentSnapshot() {
+    var u = U(), gov = govColumnLoad();
+    var verdict = (S.cap === null || isNaN(S.cap)) ? "neutral" : (gov.value <= S.cap ? "ok" : "bad");
+    var title = (S.type === "wall" ? "Climbing wall " : "Boulder wall ") + fmtLen(S.height);
+    return { title: title, unit: u.force, governing: Math.round(gov.value * 100) / 100, verdict: verdict };
+  }
+
+  var projectRoot = function () { return document.getElementById("project-root"); };
+
+  // leave the editing context: keep the current inputs, but detach from the saved project
+  function exitEditing() {
+    P = null;
+    history.replaceState(null, "", "index.html");
+    renderProjectBar();
+  }
+
+  function renderProjectBar() {
+    var root = projectRoot();
+    if (!root) return;
+    var user = window.WTAuth && window.WTAuth.current();
+    if (!user) {
+      root.innerHTML =
+        '<div class="proj-actions"><button class="btn primary small" id="pb-login">Save as project</button>'
+        + '<span class="hint">Log in to save this design, tag it, add custom properties, and ask Walltopia about it.</span></div>';
+      root.querySelector("#pb-login").onclick = function () {
+        window.WTAuth.requireAuth("register").then(function () { openSavePanel(); }).catch(function () {});
+      };
+      return;
+    }
+    var html = '<div class="proj-actions">';
+    if (P) {
+      html += '<button class="btn small" id="pb-exit" title="Leave editing — keep these numbers as a new, unsaved design">&larr; Exit editing</button>';
+      html += '<span class="editing-flag">Editing · ' + esc(P.name) + "</span>";
+      html += '<button class="btn primary small" id="pb-update">Save changes</button>';
+      html += '<button class="btn small" id="pb-saveas">Save as new</button>';
+    } else {
+      html += '<button class="btn primary small" id="pb-save">Save as project</button>';
+      html += '<span class="hint">Save this design with tags &amp; custom properties.</span>';
+    }
+    html += "</div>";
+    if (P) html += questionPanelHtml();
+    root.innerHTML = html;
+    if (P) {
+      root.querySelector("#pb-exit").onclick = exitEditing;
+      root.querySelector("#pb-update").onclick = function () { doSave("update"); };
+      root.querySelector("#pb-saveas").onclick = function () { openSavePanel(true); };
+      wireQuestionPanel();
+      loadQuestions();
+    } else {
+      root.querySelector("#pb-save").onclick = function () { openSavePanel(); };
+    }
+  }
+
+  function openSavePanel(asNew) {
+    var root = projectRoot();
+    var name = (P && !asNew) ? P.name : (currentSnapshot().title + (S.type === "wall" ? " · " + S.levels + "-level" : ""));
+    var tags = (P && !asNew) ? (P.tags || []).join(", ") : "";
+    var props = (P && !asNew) ? (P.properties || []) : [];
+    var html = '<div class="save-panel"><h3>' + (asNew ? "Save as new project" : (P ? "Update project" : "Save project")) + "</h3>"
+      + '<div class="row"><label class="lbl">Project name</label><input type="text" id="sp-name" value="' + esc(name) + '" /></div>'
+      + '<div class="row"><label class="lbl">Tags <span class="hint" style="font-weight:400">(comma separated)</span></label>'
+      + '<input type="text" id="sp-tags" value="' + esc(tags) + '" placeholder="gym, EU, seismic zone 2" /></div>'
+      + '<div class="row"><label class="lbl">Custom properties</label><div class="prop-rows" id="sp-props"></div>'
+      + '<button class="btn small" id="sp-addprop" type="button" style="margin-top:8px">+ Add property</button></div>'
+      + '<div class="buttons"><button class="btn primary" id="sp-save">' + (asNew ? "Create copy" : (P ? "Save changes" : "Save project")) + "</button>"
+      + '<button class="btn" id="sp-cancel">Cancel</button></div>'
+      + '<div class="save-msg" id="sp-msg"></div></div>';
+    root.innerHTML = html;
+    var propWrap = root.querySelector("#sp-props");
+    function addRow(k, v) {
+      var row = document.createElement("div");
+      row.className = "prop-row";
+      row.innerHTML = '<input placeholder="Property" value="' + esc(k || "") + '" /><input placeholder="Value" value="' + esc(v || "") + '" /><button type="button" title="Remove">&times;</button>';
+      row.querySelector("button").onclick = function () { row.remove(); };
+      propWrap.appendChild(row);
+    }
+    (props.length ? props : [{ key: "", value: "" }]).forEach(function (p) { addRow(p.key, p.value); });
+    root.querySelector("#sp-addprop").onclick = function () { addRow("", ""); };
+    root.querySelector("#sp-cancel").onclick = renderProjectBar;
+    root.querySelector("#sp-save").onclick = function () { doSave(asNew ? "create" : (P ? "update" : "create")); };
+  }
+
+  function collectSaveForm() {
+    var root = projectRoot();
+    var name = root.querySelector("#sp-name").value.trim();
+    var tags = root.querySelector("#sp-tags").value.split(",").map(function (t) { return t.trim(); }).filter(Boolean);
+    var properties = [];
+    root.querySelectorAll("#sp-props .prop-row").forEach(function (r) {
+      var inputs = r.querySelectorAll("input");
+      var k = inputs[0].value.trim();
+      if (k) properties.push({ key: k, value: inputs[1].value.trim() });
+    });
+    return { name: name, tags: tags, properties: properties, input: currentInput(), snapshot: currentSnapshot() };
+  }
+
+  async function doSave(mode) {
+    var root = projectRoot();
+    var msg = root.querySelector("#sp-msg");
+    var payload;
+    if (mode === "update" && !document.getElementById("sp-name")) {
+      // "Save changes" pressed directly on the bar — keep existing name/tags/props, update numbers
+      payload = { name: P.name, tags: P.tags, properties: P.properties, input: currentInput(), snapshot: currentSnapshot() };
+    } else {
+      payload = collectSaveForm();
+      if (!payload.name) { if (msg) { msg.className = "save-msg bad"; msg.textContent = "Please enter a project name."; } return; }
+    }
+    var btn = root.querySelector("#sp-save"); if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+    try {
+      var res = (mode === "update" && P)
+        ? await window.WTApi.updateProject(P.id, payload)
+        : await window.WTApi.createProject(payload);
+      P = res.project;
+      history.replaceState(null, "", "index.html?project=" + P.id);
+      renderProjectBar();
+      flash(mode === "update" ? "Project updated." : "Project saved.");
+    } catch (e) {
+      if (msg) { msg.className = "save-msg bad"; msg.textContent = e.message || "Could not save."; }
+      if (btn) { btn.disabled = false; btn.textContent = "Save"; }
+    }
+  }
+
+  function flash(text) {
+    var root = projectRoot();
+    var m = document.createElement("div");
+    m.className = "save-msg ok"; m.textContent = text;
+    var bar = root.querySelector(".proj-actions"); if (bar) bar.appendChild(m);
+    setTimeout(function () { m.remove(); }, 3500);
+  }
+
+  function questionPanelHtml() {
+    return '<div class="qa-panel"><h3>Ask Walltopia about this project</h3>'
+      + '<textarea id="qa-text" placeholder="e.g. Is this scheme valid for a 6&nbsp;m column raster in seismic zone 2? Any note on the end-column biaxial case?"></textarea>'
+      + '<div style="margin-top:10px"><button class="btn primary small" id="qa-send">Send question</button>'
+      + '<span class="save-msg" id="qa-msg" style="margin-left:10px"></span></div>'
+      + '<div class="qa-list" id="qa-list"></div></div>';
+  }
+  function wireQuestionPanel() {
+    var root = projectRoot();
+    root.querySelector("#qa-send").onclick = async function () {
+      var ta = root.querySelector("#qa-text"), msg = root.querySelector("#qa-msg");
+      var text = ta.value.trim();
+      msg.className = "save-msg";
+      if (text.length < 5) { msg.className = "save-msg bad"; msg.textContent = "Please write your question."; return; }
+      this.disabled = true;
+      try {
+        await window.WTApi.askQuestion(P.id, text);
+        ta.value = ""; msg.className = "save-msg ok"; msg.textContent = "Sent to Walltopia.";
+        loadQuestions();
+      } catch (e) { msg.className = "save-msg bad"; msg.textContent = e.message || "Could not send."; }
+      this.disabled = false;
+    };
+  }
+  async function loadQuestions() {
+    if (!P) return;
+    try {
+      var res = await window.WTApi.listQuestions(P.id);
+      var list = document.getElementById("qa-list");
+      if (!list) return;
+      list.innerHTML = (res.questions || []).map(function (q) {
+        return '<div class="qa-item">' + esc(q.message) + "<time>" + new Date(q.createdAt).toLocaleString() + " · " + esc(q.status) + "</time></div>";
+      }).join("");
+    } catch (e) {}
+  }
+
+  async function maybeLoadProjectFromUrl() {
+    var id = new URLSearchParams(location.search).get("project");
+    if (!id) return;
+    try {
+      if (window.WTAuth.ready) await window.WTAuth.ready; // wait for the initial session check
+      await window.WTAuth.requireAuth("login");
+      var res = await window.WTApi.getProject(id);
+      P = res.project;
+      applyInput(P.input);
+      clampAndRender();
+      renderProjectBar();
+    } catch (e) { /* cancelled or not found — leave calculator as-is */ }
+  }
+
   // ---- init ----
   S.height = 12; S.levels = 3; S.span = 6; S.overhang = 1; S.force = 1;
   document.getElementById("cap-input").addEventListener("input", function (e) {
@@ -399,4 +593,14 @@
     S.factored = e.target.checked; renderResults();
   });
   clampAndRender();
+
+  // projects: react to login/logout, then attempt to load a shared/opened project
+  if (window.WTAuth) {
+    window.WTAuth.onChange(function (user) {
+      if (!user) P = null; // logged out — drop the editing context so guests can't hit protected actions
+      renderProjectBar();
+    });
+    renderProjectBar();
+    maybeLoadProjectFromUrl();
+  }
 })();

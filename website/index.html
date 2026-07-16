@@ -4,18 +4,27 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Walltopia Preliminary Loads — Applicability Check</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="icon" href="assets/walltopia-logo.svg" />
+  <link rel="stylesheet" href="styles.css?v=wt4" />
 </head>
 <body>
   <header class="masthead">
     <div class="wrap">
-      <div class="brand-mark">W</div>
-      <div class="brand">
-        <h1>Preliminary Loads — Applicability Check</h1>
-        <p>Artificial Climbing Structures · loads on existing structures</p>
-      </div>
+      <a class="brand" href="index.html">
+        <img class="logo" src="assets/walltopia-logo-white.svg" alt="Walltopia" />
+        <span class="tag">Preliminary&nbsp;<b>Loads</b></span>
+      </a>
       <div class="spacer"></div>
-      <span class="pill-warn">Preliminary · not for construction</span>
+      <nav class="topnav" aria-label="Primary">
+        <a href="index.html" aria-current="page">Load Calculator</a>
+        <a href="dashboard.html">My Projects</a>
+        <a href="manual.html">Application Manual</a>
+        <a href="attachment-details.html">Attachment Details</a>
+      </nav>
+      <div id="auth-slot"></div>
     </div>
   </header>
 
@@ -74,6 +83,7 @@
 
     <!-- RESULTS -->
     <section class="card results" aria-live="polite">
+      <div id="project-root"></div>
       <div id="result-root">
         <div class="empty">Loading load tables…</div>
       </div>
@@ -81,6 +91,8 @@
   </main>
 
   <script src="data.js"></script>
-  <script src="app.js"></script>
+  <script src="api.js?v=wt4"></script>
+  <script src="auth-ui.js?v=wt4"></script>
+  <script src="app.js?v=wt4"></script>
 </body>
 </html>

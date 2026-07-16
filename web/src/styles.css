@@ -73,7 +73,7 @@ body {
   white-space: nowrap; border-bottom: 2px solid transparent;
 }
 .topnav a:hover { color: #fff; }
-.topnav a[aria-current="page"] { color: #fff; border-bottom-color: var(--accent); }
+.topnav a[aria-current="page"], .topnav a.active { color: #fff; border-bottom-color: var(--accent); }
 @media (max-width: 760px) { .masthead .wrap { flex-wrap: wrap; gap: 12px; } .topnav { order: 3; width: 100%; overflow-x: auto; } .brand .tag { display: none; } }
 
 .pill-warn {
@@ -229,7 +229,8 @@ table.loads .grp-ll { color: var(--ll); }
 .page-figure details[open] summary::before { content: "- "; }
 .page-figure details[open] summary { border-bottom: 1px solid var(--line); }
 .page-figure .transcript { padding: 12px 18px 16px; font-size: 13.5px; color: var(--ink-soft); line-height: 1.65; }
-body.hide-transcripts .page-figure details { display: none; }
+body.hide-transcripts .page-figure details,
+.hide-transcripts .page-figure details { display: none; }
 
 /* attachment CAD viewer */
 .cadwrap { background: #fff; border: 1px solid var(--line); box-shadow: var(--shadow); overflow: hidden; }
